@@ -1,5 +1,5 @@
-from isaaclab.core.utils.prims import define_prim, get_prim_at_path
-
+from isaacsim.core.utils.prims import define_prim, get_prim_at_path
+import isaacsim.core.utils.nucleus as nucleus_utils
 
 def create_warehouse_env():
     assets_root_path = nucleus_utils.get_assets_root_path()
