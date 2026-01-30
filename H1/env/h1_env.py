@@ -5,9 +5,7 @@ from isaaclab.utils import configclass
 import isaaclab_tasks.manager_based.locomotion.velocity.mdp as mdp
 from isaaclab_tasks.manager_based.locomotion.velocity.velocity_env_cfg import LocomotionVelocityRoughEnvCfg, RewardsCfg
 
-##
-# Pre-defined configs
-##
+
 from isaaclab_assets import H1_MINIMAL_CFG  # isort: skip
 
 

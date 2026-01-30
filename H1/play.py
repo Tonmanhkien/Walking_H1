@@ -40,8 +40,7 @@ sys.path.append(project_root)
 
 from train.ppo import PPOAgent
 from env.h1_env import H1RoughEnvCfg_PLAY
-from env.sim_env import create_warehouse_env, create_warehouse_forklifts_env, create_warehouse_shelves_env, create_full_warehouse_env, create_hospital_env, create_office_env
-
+import env.sim_env as sim_env
 
 
 # --------------------------
@@ -206,7 +205,7 @@ def main():
     env_cfg.scene.num_envs = args.num_envs
     env_cfg.episode_length_s = 1_000_000.0
 
-    env = gym.make("Isaac-Velocity-Rough-H1-v0")
+    env = gym.make("Isaac-Velocity-Rough-H1-v0", cfg=env_cfg)
     env = IsaacWrapper(env)
 
     # Load agent
@@ -221,6 +220,8 @@ def main():
     agent.eval()
     print(f"[INFO] Loaded checkpoint: {args.ckpt}")
 
+    # sim_env.create_warehouse_env()
+
     player = H1KeyboardPlayer(env, num_envs=args.num_envs, cmd_dim=args.cmd_dim)
 
     obs = env.reset()
@@ -230,7 +231,7 @@ def main():
         while simulation_app.is_running():
             player.update_selected_object()
 
-            # overwrite command in obs BEFORE inference (like IsaacLab demo)
+            # overwrite command in obs BEFORE inference 
             if obs.shape[1] >= args.cmd_start + args.cmd_dim:
                 obs[:, cmd_slice] = player.commands
 
