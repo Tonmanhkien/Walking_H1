@@ -39,12 +39,12 @@ class H1SceneCfg(InteractiveSceneCfg):
         ),
     )
 
-    unitree_h1: ArticulationCfg = H1_MINIMAL_CFG.replace(prim_path="{ENV_REGEX_NS}/Robot")
+    robot: ArticulationCfg = H1_MINIMAL_CFG.replace(prim_path="{ENV_REGEX_NS}/Robot")
 
     contact_forces = ContactSensorCfg(prim_path="{ENV_REGEX_NS}/Robot/.*", history_length=3, track_air_time=True)
 
     height_scanner = RayCasterCfg(
-        prim_path="{ENV_REGEX_NS}/Robot/base",
+        prim_path="{ENV_REGEX_NS}/Robot/torso_link",
         offset=RayCasterCfg.OffsetCfg(pos=(0.0, 0.0, 20.0)),
         ray_alignment="yaw",
         pattern_cfg=patterns.GridPatternCfg(resolution=0.1, size=[1.6, 1.0]),
@@ -115,36 +115,51 @@ class EventCfg:
 class RewardsCfg:
     """Reward terms for the MDP."""
 
-    # -- task
+    termination_penalty = RewTerm(func=mdp.is_terminated, weight=-200.0)
+    lin_vel_z_l2 = None
     track_lin_vel_xy_exp = RewTerm(
-        func=mdp.track_lin_vel_xy_exp, weight=1.0, params={"command_name": "base_velocity", "std": math.sqrt(0.25)}
+        func=mdp.track_lin_vel_xy_yaw_frame_exp,
+        weight=1.0,
+        params={"command_name": "base_velocity", "std": 0.5},
     )
     track_ang_vel_z_exp = RewTerm(
-        func=mdp.track_ang_vel_z_exp, weight=0.5, params={"command_name": "base_velocity", "std": math.sqrt(0.25)}
+        func=mdp.track_ang_vel_z_world_exp, weight=1.0, params={"command_name": "base_velocity", "std": 0.5}
     )
-    # -- penalties
-    lin_vel_z_l2 = RewTerm(func=mdp.lin_vel_z_l2, weight=-2.0)
-    ang_vel_xy_l2 = RewTerm(func=mdp.ang_vel_xy_l2, weight=-0.05)
-    dof_torques_l2 = RewTerm(func=mdp.joint_torques_l2, weight=-1.0e-5)
-    dof_acc_l2 = RewTerm(func=mdp.joint_acc_l2, weight=-2.5e-7)
-    action_rate_l2 = RewTerm(func=mdp.action_rate_l2, weight=-0.01)
     feet_air_time = RewTerm(
-        func=mdp.feet_air_time,
-        weight=0.125,
+        func=mdp.feet_air_time_positive_biped,
+        weight=0.25,
         params={
-            "sensor_cfg": SceneEntityCfg("contact_forces", body_names=".*FOOT"),
             "command_name": "base_velocity",
-            "threshold": 0.5,
+            "sensor_cfg": SceneEntityCfg("contact_forces", body_names=".*ankle_link"),
+            "threshold": 0.4,
         },
     )
-    undesired_contacts = RewTerm(
-        func=mdp.undesired_contacts,
-        weight=-1.0,
-        params={"sensor_cfg": SceneEntityCfg("contact_forces", body_names=".*THIGH"), "threshold": 1.0},
+    feet_slide = RewTerm(
+        func=mdp.feet_slide,
+        weight=-0.25,
+        params={
+            "sensor_cfg": SceneEntityCfg("contact_forces", body_names=".*ankle_link"),
+            "asset_cfg": SceneEntityCfg("robot", body_names=".*ankle_link"),
+        },
     )
-    # -- optional penalties
-    flat_orientation_l2 = RewTerm(func=mdp.flat_orientation_l2, weight=0.0)
-    dof_pos_limits = RewTerm(func=mdp.joint_pos_limits, weight=0.0)
+    # Penalize ankle joint limits
+    dof_pos_limits = RewTerm(
+        func=mdp.joint_pos_limits, weight=-1.0, params={"asset_cfg": SceneEntityCfg("robot", joint_names=".*_ankle")}
+    )
+    # Penalize deviation from default of the joints that are not essential for locomotion
+    joint_deviation_hip = RewTerm(
+        func=mdp.joint_deviation_l1,
+        weight=-0.2,
+        params={"asset_cfg": SceneEntityCfg("robot", joint_names=[".*_hip_yaw", ".*_hip_roll"])},
+    )
+    joint_deviation_arms = RewTerm(
+        func=mdp.joint_deviation_l1,
+        weight=-0.2,
+        params={"asset_cfg": SceneEntityCfg("robot", joint_names=[".*_shoulder_.*", ".*_elbow"])},
+    )
+    joint_deviation_torso = RewTerm(
+        func=mdp.joint_deviation_l1, weight=-0.1, params={"asset_cfg": SceneEntityCfg("robot", joint_names="torso")}
+    )
 
 
 @configclass
@@ -154,7 +169,7 @@ class TerminationsCfg:
     time_out = DoneTerm(func=mdp.time_out, time_out=True)
     base_contact = DoneTerm(
         func=mdp.illegal_contact,
-        params={"sensor_cfg": SceneEntityCfg("contact_forces", body_names="base"), "threshold": 1.0},
+        params={"sensor_cfg": SceneEntityCfg("contact_forces", body_names=".*torso_link"), "threshold": 1.0},
     )
 
 @configclass

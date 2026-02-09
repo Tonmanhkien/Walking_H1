@@ -15,6 +15,21 @@ parser.add_argument("--num_envs", type=int, default=1)
 parser.add_argument("--cmd_start", type=int, default=9, help="Start index of command in obs['policy'].")
 parser.add_argument("--cmd_dim", type=int, default=4, help="Command dimension stored in obs slice.")
 
+parser.add_argument(
+    "--world",
+    type=str,
+    default="plane",
+    choices=[
+        "plane",
+        "warehouse",
+        "warehouse-forklifts",
+        "warehouse-shelves",
+        "full-warehouse",
+        "hospital",
+        "office",
+    ],
+)
+
 # IsaacLab AppLauncher args
 from isaaclab.app import AppLauncher
 AppLauncher.add_app_launcher_args(parser)
@@ -39,7 +54,7 @@ project_root = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(project_root)
 
 from train.ppo import PPOAgent
-from env.h1_env import H1RoughEnvCfg_PLAY
+from env.h1_env import H1RoughEnvCfg_PLAY, H1BaseEnvCfg
 import env.sim_env as sim_env
 
 
@@ -60,6 +75,8 @@ class IsaacWrapper(gym.Wrapper):
     def step(self, action):
         obs, r, terminated, truncated, info = self.env.step(action)
         return obs["policy"], r, terminated, truncated, info
+
+
 
 
 class H1KeyboardPlayer:
